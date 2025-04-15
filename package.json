@@ -1,0 +1,23 @@
+{
+  "name": "altscoretest",
+  "version": "1.0.0",
+  "description": "Test for Altscore",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nicolasaddamo1/AltscoreTest.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nicolasaddamo1/AltscoreTest/issues"
+  },
+  "homepage": "https://github.com/nicolasaddamo1/AltscoreTest#readme",
+  "dependencies": {
+    "axios": "^1.8.4"
+  }
+}
