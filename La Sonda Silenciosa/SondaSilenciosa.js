@@ -1,91 +1,93 @@
+require('dotenv').config();
 const axios = require('axios');
 
-async function getMeasurement() {
-    try {
-        const response = await axios.get('/v1/s1/e1/resources/measurement');
-        console.log('Datos recibidos del escáner:', response.data);
-        return response.data;
-    } catch (error) {
-        console.error('Error al obtener la medición:', error.message);
-        throw error;
+const baseURL = process.env.BASE_URL || 'https://makers-challenge.altscore.ai/';
+const token = process.env.API_KEY;
+
+async function getValidMeasurement(maxAttempts = 500) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        console.log(`🔍 Intento ${attempt}...`);
+        try {
+            const response = await axios.get(`${baseURL}v1/s1/e1/resources/measurement`, {
+                headers: {
+                    'API-KEY': token,
+                },
+            });
+
+            console.log('Datos recibidos:', response.data);
+
+            // Verificar si los datos son válidos
+            if (
+                response.data &&
+                response.data.distance !== undefined &&
+                response.data.time !== undefined &&
+                response.data.distance !== 'failed to measure, try again' &&
+                response.data.time !== 'failed to measure, try again'
+            ) {
+                const distance = parseFloat(response.data.distance);
+                const time = parseFloat(response.data.time);
+
+                if (!isNaN(distance) && !isNaN(time) && time > 0) {
+                    console.log('✅ Medición válida:', { distance, time });
+                    return { distance, time };
+                }
+            }
+
+            console.log('❌ Medición inválida. Reintentando...\n');
+            // Pequeña pausa entre intentos
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+        } catch (error) {
+            console.error('Error en la solicitud:', error.message);
+            if (attempt === maxAttempts) throw error;
+        }
     }
+
+    throw new Error('No se pudo obtener una medición válida después de varios intentos.');
 }
 
-
-function isValidMeasurement(data) {
-    return (
-        data &&
-        typeof data.distance === 'number' &&
-        typeof data.time === 'number' &&
-        data.time > 0
-    );
-}
-
-
-function calculateOrbitalVelocity(data) {
-    const velocity = data.distance / data.time;
-    return Math.round(velocity);
-}
-
-
-async function sendSolution(velocity) {
+async function sendSolution(speed) {
     try {
-        const response = await axios.post('/v1/s1/e1/solution', { velocity });
-        console.log('Respuesta al enviar la solución:', response.data);
+        // Usar "speed" como nombre de la clave según el swagger
+        const payload = { speed };
+
+        console.log(`🚀 Enviando solución con velocidad: ${speed} ua/h`);
+        const response = await axios.post(`${baseURL}v1/s1/e1/solution`,
+            payload,
+            {
+                headers: {
+                    'API-KEY': token,
+                    'Content-Type': 'application/json'
+                },
+            }
+        );
+
+        console.log('🎉 Respuesta de la API:', response.data);
         return response.data;
     } catch (error) {
         console.error('Error al enviar la solución:', error.message);
+        if (error.response) {
+            console.error('Detalles del error:', error.response.data);
+        }
         throw error;
     }
 }
 
-
-async function processPlanetaryData() {
+async function main() {
     try {
-        let validMeasurement = null;
-        let attempts = 0;
-        const MAX_ATTEMPTS = 5;
+        // Obtener una medición válida
+        const { distance, time } = await getValidMeasurement();
 
-        while (!validMeasurement && attempts < MAX_ATTEMPTS) {
-            attempts++;
-            console.log(`Intento ${attempts} de obtener una lectura válida...`);
+        // Calcular la velocidad orbital y redondear al entero más cercano
+        const speed = Math.round(distance / time);
+        console.log(`📈 Velocidad orbital calculada: ${speed} ua/h`);
 
-            const measurementData = await getMeasurement();
-
-            if (isValidMeasurement(measurementData)) {
-                validMeasurement = measurementData;
-                console.log('¡Lectura válida obtenida!');
-            } else {
-                console.log('Lectura no válida. Interferencia cósmica detectada.');
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-        }
-
-        if (!validMeasurement) {
-            throw new Error('No se pudo obtener una lectura válida después de múltiples intentos.');
-        }
-        const orbitalVelocity = calculateOrbitalVelocity(validMeasurement);
-        console.log(`Velocidad orbital calculada: ${orbitalVelocity} UA/hora`);
-        const result = await sendSolution(orbitalVelocity);
-
-        return {
-            success: true,
-            orbitalVelocity,
-            response: result
-        };
+        // Enviar la solución
+        await sendSolution(speed);
     } catch (error) {
-        console.error('Error en el proceso de análisis planetario:', error);
-        return {
-            success: false,
-            error: error.message
-        };
+        console.error('💥 Error en la misión:', error.message);
     }
 }
 
-module.exports = {
-    getMeasurement,
-    isValidMeasurement,
-    calculateOrbitalVelocity,
-    sendSolution,
-    processPlanetaryData
-};
+// Ejecutar el programa
+main();
