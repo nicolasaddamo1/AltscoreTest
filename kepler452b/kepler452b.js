@@ -1,93 +1,73 @@
 require('dotenv').config();
 const axios = require('axios');
-const baseURL = process.env.BASE_URL || 'https://makers-challenge.altscore.ai/';
+
+const baseURL = process.env.BASE_URL;
 const token = process.env.API_KEY;
+const solutionURL = process.env.SOLUTION_URL;
 
-async function solveCosmicRiddle() {
-    let allStars = [];
-    let nextPage = '/v1/s1/e2/resources/stars';
-    let attempt = 0;
-    const maxAttempts = 10;
+const HEADERS = {
+    'API-KEY': token,
+    'Accept': 'application/json',
+};
 
-    try {
-        // Recolectamos todas las estrellas
-        while (nextPage && attempt < maxAttempts) {
-            attempt++;
-            const response = await axios.get(baseURL + nextPage, {
-                headers: {
-                    'API-KEY': token,
-                    'Accept': 'application/json'
-                }
+async function getAllStars() {
+    const uniqueStars = new Map(); // id => resonance
+    let page = 1;
+
+    while (uniqueStars.size < 100) {
+        try {
+            const response = await axios.get(`${baseURL}?page=${page}`, {
+                headers: HEADERS,
             });
 
-            console.log(`🌀 Intento ${attempt}:`, response.data.length, 'estrellas encontradas');
+            const stars = response.data;
+            console.log(`Página ${page} devuelve ${stars.length} estrellas`);
+            console.log(stars);
 
-            if (response.data && Array.isArray(response.data)) {
-                allStars = allStars.concat(response.data);
-
-                // Verificamos paginación en los headers
-                const linkHeader = response.headers.link;
-                if (linkHeader && linkHeader.includes('rel="next"')) {
-                    const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
-                    if (match) {
-                        const url = new URL(match[1]);
-                        nextPage = url.pathname + url.search;
-                    } else {
-                        nextPage = null;
-                    }
-                } else {
-                    nextPage = null;
-                }
-            } else {
-                nextPage = null;
+            for (const star of stars) {
+                uniqueStars.set(star.id, star.resonance);
             }
+
+            if (stars.length === 0) break; // Corte defensivo si no hay más data
+            page++;
+
+        } catch (err) {
+            console.error(`Error en página ${page}:`, err.message);
+            break;
         }
+    }
 
-        console.log('🌟 Total de estrellas recolectadas:', allStars.length);
+    console.log(`✨ Total de estrellas únicas recolectadas: ${uniqueStars.size}`);
+    return Array.from(uniqueStars.values());
+}
 
-        if (allStars.length === 0) {
-            throw new Error('No se encontraron estrellas');
-        }
 
-        // Calculamos la resonancia promedio especial
-        let totalResonance = 0;
-        let previousResonance = 0;
-
-        // Ordenamos las estrellas por ID para consistencia
-        const sortedStars = [...allStars].sort((a, b) => a.id.localeCompare(b.id));
-
-        for (const star of sortedStars) {
-            // Aplicamos el efecto acumulativo
-            const adjustedResonance = star.resonance + (previousResonance * 0.1);
-            totalResonance += adjustedResonance;
-            previousResonance = adjustedResonance;
-        }
-
-        // Redondeamos a ENTERO como requiere el Oráculo
-        const averageResonance = Math.round(totalResonance / sortedStars.length);
-        console.log('🔮 Resonancia promedio calculada (entera):', averageResonance);
-
-        // Enviamos la solución al Oráculo
-        const solutionResponse = await axios.post(baseURL + 'v1/s1/e2/solution', {
-            average_resonance: averageResonance - 1 // Ahora es un entero
+async function submitSolution(average) {
+    try {
+        console.log(average);
+        const response = await axios.post(solutionURL, {
+            average_resonance: average
         }, {
             headers: {
-                'API-KEY': token,
-                'Content-Type': 'application/json',
-                'X-Cosmic-Understanding': 'v1.1'  // Versión actualizada
+                ...HEADERS,
+                'Content-Type': 'application/json'
             }
         });
 
-        console.log('💫 Respuesta del Oráculo:', solutionResponse.data);
-        return solutionResponse.data;
-
+        console.log('✅ Solución enviada correctamente:');
+        console.log(response.data);
     } catch (error) {
-        console.error('❌ Error cósmico:', error.response?.data || error.message);
-        throw error;
+        console.error('❌ Error al enviar la solución:', error.message);
+        if (error.response) console.error(error.response.data);
     }
 }
 
-// Ejecutamos la solución
-solveCosmicRiddle()
-    .then(result => console.log('🎉 Misión cumplida:', result))
-    .catch(error => console.error('💥 Falla cósmica:', error));
+(async () => {
+    const resonanceValues = await getAllStars();
+    const total = resonanceValues.reduce((acc, val) => acc + val, 0);
+    console.log(resonanceValues.length)
+    const average = Math.floor(total / resonanceValues.length);
+
+    console.log(`🔭 Resonancia promedio calculada: ${average}`);
+    await submitSolution(average);
+})();
