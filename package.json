@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/nicolasaddamo1/AltscoreTest#readme",
   "dependencies": {
-    "axios": "^1.8.4"
+    "axios": "^1.8.4",
+    "dotenv": "^16.5.0"
   }
 }
