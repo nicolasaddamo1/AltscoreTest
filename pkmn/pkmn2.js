@@ -46,7 +46,7 @@ async function getPokemonHeight(url, retries = 3) {
   try {
     const response = await axios.get(url);
     await delay(200);
-    return response.data.height / 10;
+    return response.data.height;
   } catch (error) {
     if (retries > 0) {
       await delay(500);
