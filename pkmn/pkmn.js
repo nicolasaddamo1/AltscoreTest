@@ -34,11 +34,9 @@ async function pk(){
       "unknown": 0.000
     }
 }
-  
-
 try {
       const response = await axios.post(url, respuesta, { headers: HEADERS });
-      console.log("Respuesta del servidor:", response.data);
+      console.log("Respuesta del servidor 111:", response.data);
     } catch (error) {
       console.error("Error al enviar:", error.message);
     }
